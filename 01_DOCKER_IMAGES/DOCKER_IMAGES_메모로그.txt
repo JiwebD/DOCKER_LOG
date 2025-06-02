@@ -1,0 +1,576 @@
+도커 실행하고
+
+cmd에서 docker images 엔터하면
+--
+C:\Users\Administrator>docker images
+REPOSITORY   TAG       IMAGE ID   CREATED   SIZE
+--
+
+-------------------------------
+Dockerfile 생성 및 이미지 빌드 실습
+-------------------------------
+
+
+--------------
+1단계. Dockerfile 작성하기
+--------------
+
+
+1-1. 빈 폴더 만들기
+BN 만들기
+start.spring.io 에서
+디펜던시
+Spring Web, Lombok, Thymeleaf 추가하고 제너래이트
+demo -> BN 로 이름 변경
+
+FN 만들기 (react)
+
+--
+Microsoft Windows [Version 10.0.19045.5854]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\01_DOCKER_IMAGES>npx create-react-app FN
+Cannot create a project named "FN" because of npm naming restrictions:
+
+  * name can no longer contain capital letters
+
+Please choose a different project name.
+npm notice
+npm notice New major version of npm available! 10.9.2 -> 11.4.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.4.1
+npm notice To update run: npm install -g npm@11.4.1
+npm notice
+
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\01_DOCKER_IMAGES>npm install -g npm@11.4.1
+
+added 1 package in 5s
+
+25 packages are looking for funding
+  run `npm fund` for details
+
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\01_DOCKER_IMAGES>npx create-react-app fn
+
+Creating a new React app in C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\01_DOCKER_IMAGES\fn.
+
+Installing packages. This might take a couple of minutes.
+Installing react, react-dom, and react-scripts with cra-template...
+
+
+added 1325 packages in 33s
+
+269 packages are looking for funding
+  run `npm fund` for details
+
+Installing template dependencies using npm...
+
+added 18 packages, and changed 1 package in 4s
+
+269 packages are looking for funding
+  run `npm fund` for details
+Removing template package using npm...
+
+
+removed 1 package, and audited 1343 packages in 3s
+
+269 packages are looking for funding
+  run `npm fund` for details
+
+8 vulnerabilities (2 moderate, 6 high)
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+Success! Created fn at C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\01_DOCKER_IMAGES\fn
+Inside that directory, you can run several commands:
+
+  npm start
+    Starts the development server.
+
+  npm run build
+    Bundles the app into static files for production.
+
+  npm test
+    Starts the test runner.
+
+  npm run eject
+    Removes this tool and copies build dependencies, configuration files
+    and scripts into the app directory. If you do this, you can’t go back!
+
+We suggest that you begin by typing:
+
+  cd fn
+  npm start
+
+Happy hacking!
+
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\01_DOCKER_IMAGES>
+
+--
+
+
+
+
+------
+BN
+
+application.properties
+
+server.port=8090
+
+DemoApplication 실행 확인
+
+
+
+--
+01_DOCKER_IMAGES/BN/src/main/java/com/example/demo/controller/HomeController.java
+
+package com.example.demo.controller;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+@Slf4j
+public class HomeController {
+
+    @GetMapping("/")
+    public String Home(){
+        log.info("GET /");
+        return "index";
+    }
+}
+
+
+--
+01_DOCKER_IMAGES/BN/src/main/resources/templates/index.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <h1>DOCKER IMAGE TEST(SPRINGBOOT)</h1>
+
+</body>
+</html>
+
+실행
+브라우저
+http://localhost:8090/ 
+index.html로 접속되는거 확인
+
+DemoApplication 실행 끄기
+
+
+
+--
+Spring Boot 3.x용 Dockerfile (BN 폴더)
+
+01_DOCKER_IMAGES/BN/Dockerfile
+
+프로젝트경로에 Dockerfile 파일 새로 생성
+
+# 빌드 스테이지
+FROM gradle:8.14.1-jdk21 AS build
+WORKDIR /app
+COPY . .
+RUN gradle build --no-daemon -x test
+
+# 실행 스테이지
+FROM eclipse-temurin:21-jdk-alpine
+WORKDIR /app
+
+# 빌드한 JAR 복사
+COPY --from=build /app/build/libs/*.jar app.jar
+
+# 외부 접근을 위한 포트 설정
+EXPOSE 8090
+
+# JAR 실행
+CMD ["java", "-jar", "app.jar"]
+
+
+--------------
+2단계. Docker 이미지 빌드
+--------------
+
+--
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\01_DOCKER_IMAGES\BN
+에서 cmd 열기
+
+Spring Boot 앱 빌드
+docker build -t bn .
+
+이미지 확인
+docker images
+
+콘태이너 있는지 확인 (없어야 됨)
+docker ps
+콘태이너 있으면
+docker stop id
+docker remove id
+
+Spring Boot 이미지 내 진입 & 실행
+docker run -it --rm -p 8090:8090 --entrypoint sh bn
+ls -l
+java -jar app.jar
+
+나가는법
+exit
+
+
+
+
+------
+FN
+
+--
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\01_DOCKER_IMAGES\FN
+에서 cmd
+code .
+
+ctrl + shift + `  터미널 열어서
+npm start
+실행 잘 되는거 확인
+
+src\App.js
+
+import logo from './logo.svg';
+import './App.css';
+
+function App() {
+  return (
+    <div className="App">
+      <h1>DOCKER IMAGE TEST(REACT)</h1>
+    </div>
+  );
+}
+
+export default App;
+
+src\index.js
+<React.StrictMode>, reportWebVitals();  주석해주기
+
+터미널 에서 ctrl + c 로 실행 끄기
+
+
+--
+React용 Dockerfile (FN 폴더)
+Dockerfile
+
+### 1단계: React 앱 빌드 ###
+FROM node:20-alpine AS build
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 의존성 설치
+COPY package*.json ./
+RUN npm install
+
+# 소스 코드 복사 및 빌드
+COPY . .
+RUN npm run build
+
+
+### 2단계: Nginx 이미지로 정적 파일 배포 ###
+FROM nginx:alpine
+
+# 빌드된 정적 파일을 Nginx 웹 루트로 복사
+COPY --from=build /app/build /usr/share/nginx/html
+
+# (선택) 커스텀 Nginx 설정 파일이 있을 경우 복사
+# COPY nginx.conf /etc/nginx/nginx.conf
+
+# 포트 노출
+EXPOSE 80
+
+# Nginx 실행
+CMD ["nginx", "-g", "daemon off;"]
+
+
+--
+React 앱 빌드
+터미널에서
+docker build -t fn .
+
+docker images
+
+PS C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\01_DOCKER_IMAGES\FN> docker images   
+REPOSITORY   TAG       IMAGE ID       CREATED              SIZE
+fn           latest    a8ce2d09d004   About a minute ago   75MB
+bn           latest    4767e48ccab5   31 minutes ago       591MB
+
+
+React 이미지 내 진입 & 실행
+docker run -it -p 3000:80 --rm --entrypoint sh fn
+
+ls -l
+
+nginx -g 'daemon off;'
+
+
+
+
+-------------------------------
+Dodcker Container 실습
+-------------------------------
+
+DB/Dockerfile
+# MySQL 8.0 공식 이미지를 기반으로 설정
+FROM mysql:8.0
+
+# 환경 변수 설정
+ENV MYSQL_ROOT_PASSWORD=Zhfldk11!
+ENV MYSQL_DATABASE=bookdb
+ENV MYSQL_USER=dbconn
+ENV MYSQL_PASSWORD=Zhfldk11!
+
+# 3306 포트 노출
+EXPOSE 3306 
+
+# MySQL 서버 실행
+CMD ["mysqld"]
+REDIS/Dockerfile
+# Redis 이미지 기반
+FROM redis:latest
+
+# 기본 작업 디렉토리 설정 (선택 사항)
+WORKDIR /usr/local/etc/redis
+
+# 사용자 정의 Redis 설정 파일 복사 (필요한 경우)
+# COPY redis.conf ./redis.conf
+
+# 포트 노출
+EXPOSE 6379
+
+# Redis 시작 명령 (사용자 정의 설정 파일이 있는 경우 주석 해제)
+# CMD ["redis-server", "/usr/local/etc/redis/redis.conf"]
+CMD ["redis-server"]
+    
+FN/Dockerfile
+### 1단계: React 앱 빌드 ###
+FROM node:20-alpine AS build
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 의존성 설치
+COPY package*.json ./
+RUN npm install
+
+# 소스 코드 복사 및 빌드
+COPY . .
+RUN npm run build
+
+
+### 2단계: Nginx 이미지로 정적 파일 배포 ###
+FROM nginx:alpine
+
+# 빌드된 정적 파일을 Nginx 웹 루트로 복사
+COPY --from=build /app/build /usr/share/nginx/html
+
+# (선택) 커스텀 Nginx 설정 파일이 있을 경우 복사
+# COPY nginx.conf /etc/nginx/nginx.conf
+
+# 포트 노출
+EXPOSE 80
+
+# Nginx 실행
+CMD ["nginx", "-g", "daemon off;"]
+BN/Dockerfile
+# 빌드 스테이지
+FROM gradle:8.14.1-jdk21 AS build
+WORKDIR /app
+COPY . .
+RUN gradle build --no-daemon -x test
+
+# 실행 스테이지
+FROM eclipse-temurin:21-jdk-alpine
+WORKDIR /app
+
+# 빌드한 JAR 복사
+COPY --from=build /app/build/libs/*.jar app.jar
+
+# 외부 접근을 위한 포트 설정
+EXPOSE 8095
+
+# JAR 실행
+CMD ["java", "-jar", "app.jar"]
+
+
+
+--
+cmd
+
+docker network ls
+
+docker network create --driver bridge my-network
+
+
+----
+DB Container
+----
+cd DB
+
+docker images
+
+docker rmi fn
+
+docker rmi bn
+
+docker rmi redis
+
+
+콘태이너 실행중이라 안된다고하면
+
+docker ps -a 로 콘태이너 아이디 확인
+
+docker remove 콘태이너 id
+
+docker rmi 삭제할려는 image
+
+# 이미지 빌드
+docker build -t db .
+
+# 컨테이너 실행 (네트워크 지정)
+docker run -d --name db-container --network my-network -p 3330:3306 db
+
+# 확인
+docker ps
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\02_DOCKER_CONTAINER\DB>docker ps
+CONTAINER ID   IMAGE     COMMAND                   CREATED         STATUS         PORTS                               NAMES
+7c77c6f10297   db        "docker-entrypoint.s…"   8 seconds ago   Up 7 seconds   33060/tcp, 0.0.0.0:3330->3306/tcp   db-container
+
+mysql workbench에서
+Setup New Connection
+Connection Name - DOCKER_MYSQL
+port - 3330
+Username - dbconn
+
+Test Connection - password Zhfldk11!
+
+Ok
+
+
+----
+REDIS Container(기존 Redis 정지 이후 진행)
+----
+
+cd ..
+cd REDIS
+
+# 이미지 빌드
+docker build -t redis .
+
+docker images
+
+# 컨테이너 실행 (네트워크 지정)
+docker run -d --name redis-container --network my-network -p 6379:6379 redis
+
+# 확인
+docker ps
+
+
+----
+BN Container
+----
+
+cd ..
+cd BN
+
+# 이미지 빌드
+docker build -t bn .
+
+docker images
+
+# 컨테이너 실행 (네트워크 지정)
+docker run -d --name bn-container --network my-network -p 8090:8090 bn
+
+# 확인
+docker ps
+
+0cacb5e3442e   bn        "/__cacert_entrypoin…"   5 minutes ago   Exited (1) 5 minutes ago                                       bn-container
+
+에러 발생
+
+application.properties에
+spring.redis.host=localhost,
+spring.datasource.url=jdbc:mysql://localhost:3306/bookdb
+때문이라함
+
+--
+수정 전
+#----------------------------------------------------------------
+# REDIS SERVER SETTING
+#----------------------------------------------------------------
+spring.redis.host=localhost
+spring.redis.port=6379
+#----------------------------------------------------------------
+#DataSource Config
+#----------------------------------------------------------------
+spring.datasource.classname=com.mysql.cj.jdbc.Driver
+spring.datasource.url=jdbc:mysql://localhost:3306/bookdb
+spring.datasource.username=root
+spring.datasource.password=Zhfldk11!
+
+수정 후
+#----------------------------------------------------------------
+# REDIS SERVER SETTING
+#----------------------------------------------------------------
+spring.redis.host=redis-container
+spring.redis.port=6379
+#----------------------------------------------------------------
+#DataSource Config
+#----------------------------------------------------------------
+spring.datasource.classname=com.mysql.cj.jdbc.Driver
+spring.datasource.url=jdbc:mysql://db-container:3306/bookdb
+spring.datasource.username=root
+spring.datasource.password=Zhfldk11!
+
+--
+
+수정하고
+docker 이미지 bn 삭제하고 다시 만들고 확인
+에러 없음
+
+docker logs bn-container
+
+mysql workbench 에서 테이블 생성 확인
+
+
+FN
+
+# 이미지 빌드
+docker build -t fn .
+
+# 컨테이너 실행 (네트워크 지정)
+docker run -d --name fn-container --network my-network -p 3000:80 fn
+
+# 확인
+docker ps
+
+브라우저
+http://localhost:3000 접속
+
+join 하고 mysqlworkbench에 컬럼 추가 확인
+
+login 하고
+개발자도구 에서 Application
+쿠키 에세스토큰, 리프레쉬 토큰 확인
+
+Another Redis Desktop Manager에서 생성 확인
+
+logout 하고
+쿠키 에세스토큰, 리프레쉬 토큰 삭제 확인
+
+Another Redis Desktop Manager에서 삭제 확인
+
+
+
+
