@@ -1,0 +1,155 @@
+Docker Compose 개념 정리
+Docker Compose는 여러 개의 컨테이너를 하나의 서비스 단위로 정의하고 관리할 수 있게 해주는 도구입니다.
+
+1. Docker Compose란?
+정의
+Docker Compose는 다중 컨테이너 애플리케이션을 정의하고 실행할 수 있도록 지원하는 Docker의 공식 도구입니다.
+`docker-compose.yml` 파일 하나로 모든 서비스 정의, 네트워크, 볼륨 등을 관리할 수 있습니다.
+
+
+
+docker.desktop 실행
+
+Containers 있는거 다 삭제
+
+Images 있는거 다 삭제
+
+Volumes 있는거 다 삭제
+
+프로젝트 폴더에서 cmd 열기
+03_DOCKER_COMPOSE
+
+docker compose version
+
+docker-compose.yml
+---
+
+
+version: '3.8'
+
+networks:
+  custom-network:
+    driver: bridge
+
+
+services:
+  fn:
+    image: fn
+    build:
+      context: ./FN
+    container_name: fn-container
+    ports:
+      - "3000:80"
+    depends_on:
+      - bn
+    networks:
+      - custom-network
+
+  bn:
+    image: bn
+    build:
+      context: ./BN
+    container_name: bn-container
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db-container:3306/bookdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: Zhfldk11!
+      SPRING_REDIS_HOST: redis
+      SERVER_PORT: 8090
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - custom-network
+
+  db:
+    image: db
+    build:
+      context: ./DB
+      dockerfile: Dockerfile
+    container_name: db-container
+    networks:
+      custom-network:
+        # ipv4_address: 192.168.1.30
+    ports:
+      - "3330:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      # - ./DB/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db-data:/var/lib/mysql   # 
+    environment:
+      MYSQL_ROOT_PASSWORD: Zhfldk11!
+      MYSQL_DATABASE: bookdb
+      MYSQL_USER: dbconn
+      MYSQL_PASSWORD: Zhfldk11!
+      MYSQL_ROOT_HOST: '%'
+    deploy:
+      resources:
+        limits:
+          memory: 1024M  # 1GB
+
+  redis:
+    image: redis
+    build:
+      context: ./REDIS
+    container_name: redis-container
+    ports:
+      - "6379:6379"
+    networks:
+      - custom-network
+
+volumes:
+  db-data:
+
+
+
+
+---
+
+volumes : 도커 껏다켰을때 저장 내용 사라지지 않게 하기 위함.
+
+depends_on : 순서 지키도록 하기 위함  . bn는 db 실행된거 확인돼야 bn 진행 하도록
+
+
+---
+
+프로젝트 경로로 cmd 창 두개 열기
+
+cmd_1
+이미지 있는거 확인
+docker images
+
+docker ps
+
+cmd_2
+실행
+docker compose up
+
+브라우저
+localhost:3000 접속 join, login 되는지 확인
+
+mysql workbench 에서 확인
+
+cmd_1
+docker images
+
+컨테이너 삭제
+docker compose down
+
+cmd_2
+docker compse up
+
+mysql workbench 확인
+volumes 에 설정된 db-data는 삭제되지 않도록 해놨기 때문에
+컨테이너를 삭제(down)하고 다시 컨테이너 실행했을때
+db 데이터가 삭제되지 않는다.
+
+다음작업 하기 전에
+
+docker compose down 꼭 해주기
