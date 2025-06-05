@@ -1,7 +1,5 @@
-
 version: '3.8'
 
-# 커스텀 네트워크만드는것
 networks:
   custom-network:
     driver: bridge
@@ -79,7 +77,20 @@ services:
     networks:
       - custom-network
 
+  jenkins:
+    image: jenkins
+    build:
+      context: ./JENKINS
+    container_name: jenkins-container
+    ports:
+      - "9090:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - custom-network
+
 volumes:
   db-data:
-
-
+  jenkins-data:

@@ -1,0 +1,423 @@
+컨테이너 + 클라우드배포
+
+시나리오_02
+
+======================
+05_DOCKER_COMPOSE_DEPLOY\JENKINS\Dockerfile
+# 여기에 JENKINS 이미지를 만들어 놓을 것임
+
+FROM jenkins/jenkins:lts
+
+USER root
+
+# 필수 유틸리티 설치
+RUN apt-get update && apt-get -y install \
+    curl \
+    unzip \
+    gnupg \
+    software-properties-common \
+    ca-certificates
+
+# Docker CLI 설치 (공식 스크립트 이용 - docker-ce 포함)
+RUN curl -fsSL https://get.docker.com | sh
+
+# AWS CLI 설치
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf awscliv2.zip aws
+
+USER jenkins
+
+======================
+
+======================
+05_DOCKER_COMPOSE_DEPLOY\JENKINS\pipeline
+//여기에 jenkins pipline script만들어줘     
+
+pipeline {
+    agent any
+    
+    environment {
+        GITHUB_REPO = 'https://github.com/STD-INFO-COMPUTING-WEB-2024-07-30/09_DEPLOYMENT.git'
+        TARGET_DIR = '04_DOCKER_COMPOSE_JENKINS'
+        EC2_HOST = '0.0.0.0'  // EC2 인스턴스의 퍼블릭 IP나 DNS
+        EC2_USER = 'ec2-user'       // EC2 사용자 이름 (Amazon Linux의 경우 'ec2-user', Ubuntu의 경우 'ubuntu')
+    }
+    
+    stages {
+        stage('Clone and Deploy on EC2') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        chmod 600 \${SSH_KEY}
+                        ssh -i \${SSH_KEY} -o StrictHostKeyChecking=no \${EC2_USER}@\${EC2_HOST} "
+                            # 기존 디렉토리 정리
+                            rm -rf 09_DEPLOYMENT && \\
+                            
+                            # GitHub 저장소 클론
+                            git clone https://github.com/STD-INFO-COMPUTING-WEB-2024-07-30/09_DEPLOYMENT.git && \\
+                            
+                            # 작업 디렉토리로 이동
+                            cd 09_DEPLOYMENT/04_DOCKER_COMPOSE_JENKINS && \\
+                            
+                            # Docker 명령어 실행 (sudo 사용)
+                            sudo docker-compose down || true && \\
+                            sudo docker rm -f \$(sudo docker ps -aq) 2>/dev/null || true && \\
+                            sudo docker rmi -f \$(sudo docker images -q) 2>/dev/null || true && \\
+                            
+                            # 이미지 강제 재빌드 및 컨테이너 시작
+                            sudo docker-compose build --no-cache && \\
+                            sudo docker-compose up -d --scale jenkins=0
+                        "
+                    """
+                }
+            }
+        }
+    }  
+    post {
+        success {
+            echo 'Deployment to EC2 completed successfully!'
+        }
+        failure {
+            echo 'Deployment to EC2 failed!'
+        }
+    }
+
+}     
+======================
+
+======================
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\05_DOCKER_COMPOSE_DEPLOY\docker-compose.yml
+version: '3.8'
+
+networks:
+  custom-network:
+    driver: bridge
+
+
+services:
+  fn:
+    image: fn
+    build:
+      context: ./FN
+    container_name: fn-container
+    ports:
+      - "3000:80"
+    depends_on:
+      - bn
+    networks:
+      - custom-network
+
+  bn:
+    image: bn
+    build:
+      context: ./BN
+    container_name: bn-container
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db-container:3306/bookdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: Zhfldk11!
+      SPRING_REDIS_HOST: redis
+      SERVER_PORT: 8090
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - custom-network
+
+  db:
+    image: db
+    build:
+      context: ./DB
+      dockerfile: Dockerfile
+    container_name: db-container
+    networks:
+      custom-network:
+        # ipv4_address: 192.168.1.30
+    ports:
+      - "3330:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      # - ./DB/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db-data:/var/lib/mysql   # 
+    environment:
+      MYSQL_ROOT_PASSWORD: Zhfldk11!
+      MYSQL_DATABASE: bookdb
+      MYSQL_USER: dbconn
+      MYSQL_PASSWORD: Zhfldk11!
+      MYSQL_ROOT_HOST: '%'
+    deploy:
+      resources:
+        limits:
+          memory: 1024M  # 1GB
+
+  redis:
+    image: redis
+    build:
+      context: ./REDIS
+    container_name: redis-container
+    ports:
+      - "6379:6379"
+    networks:
+      - custom-network
+
+  jenkins:
+    image: jenkins
+    build:
+      context: ./JENKINS
+    container_name: jenkins-container
+    ports:
+      - "9090:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - custom-network
+
+volumes:
+  db-data:
+  jenkins-data:
+
+======================
+
+======================
+터미널
+
+docker compose up 되는거 확인하고 끄기
+
+======================
+
+
+
+======================
+Docker 설치
+
+aws 인스턴스 시작 하고
+
+putty
+ec2-user
+
+sudo su
+
+sudo yum update -y
+
+sudo yum install docker -y
+
+docker -v
+
+systemctl restart docker
+
+systemctl enable docker
+
+usermod -aG docker ec2-user
+
+Docker compose 설치
+-
+
+sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" \
+  -o /usr/local/bin/docker-compose
+
+sudo chmod +x /usr/local/bin/docker-compose
+
+sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+
+docker-compose version
+
+docker-compose up
+======================
+
+
+======================
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\05_DOCKER_COMPOSE_DEPLOY\FN\.env
+
+# REACT_APP_API_URL=http://localhost:8090
+REACT_APP_API_URL=http://43.202.134.160:8090     #aws/ec2/인스턴스의 내 ip로 해야함 localhost로 하지말고
+
+# REACT_APP_API_URL=http://bn-container:8090
+
+
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\05_DOCKER_COMPOSE_DEPLOY\FN\src\api\axiosConfig.js
+// axios 인스턴스 생성
+const api = axios.create({
+  // baseURL: 'http://localhost:8090',
+  baseURL: process.env.REACT_APP_API_URL,      //.env에 있는 REACT_APP_API_URL 가져오기
+  withCredentials: true, // HTTP-Only 쿠키 포함
+});
+
+Join.jsx Login.jsx 등
+import axios from '../api/axiosConfig'  베이스 url 적용
+
+
+
+
+=========================
+Jenkins 설정
+
+http://localhost:9090/ 접속
+
+docker exec -it  jenkins-container sh
+
+cat /var/jenkins_home/secrets/initialAdminPassword
+
+나오는 패스워드 복사해서
+http://localhost:9090/ 에 패스워드 칸에 붙여넣기
+그다음 나오는 페이지에서
+왼쪽거 클릭
+
+계정명 - admin
+암호 - Zhfldk11!
+이름 - 김지성
+이메일 주소 - 내가 쓰는 이메일
+
+save finish 계속 누르면
+
+Jenkins로 접속됨
+
+Dashboard > Jenkins 관리 > System
+GitHub
+GItHub Servers add
+
+
+
+github접속해서 developer settings 에서
+Personal access tokens > Tokens (classic)
+New personal access token (classic)
+
+Note - AAAATEST
+권한
+workflow , write:packages 빼고 다 체크 해서 생성
+
+토큰 복사
+
+Dashboard > Jenkins 관리 > System
+GitHub
+GItHub Servers add
+에 Credentials 추가해서 토큰넣고 GITHUB_TOKEN 이름으로 만들고 추가하기
+
+
+
+
+
+Dashboard > Jenkins 관리 > Plugins
+Available plugins 에서 github inte 검색
+체크하고 인스톨
+
+ssh agent 검색
+체크하고 인스톨
+
+
+
+Dashboard > Jenkins 관리 > Credentials
+
+System 클릭
+
+Global credentials (unrestricted) 클릭
+
+Add credentials
+
+Kinde - SSH Username with private key
+
+ID - ec2-ssh-key
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\05_DOCKER_COMPOSE_DEPLOY\JENKINS\pipeline
+에 있음 ec2-ssh-key
+```
+C:\정처산기공유\DOCKER_LOG\DOCKER_LOG\05_DOCKER_COMPOSE_DEPLOY\JENKINS\pipeline
+//여기에 jenkins pipline script만들어줘     
+
+pipeline {
+    agent any
+    
+    environment {
+        GITHUB_REPO = 'https://github.com/STD-INFO-COMPUTING-WEB-2024-07-30/09_DEPLOYMENT.git'
+        TARGET_DIR = '04_DOCKER_COMPOSE_JENKINS'
+        EC2_HOST = '0.0.0.0'  // EC2 인스턴스의 퍼블릭 IP나 DNS
+        EC2_USER = 'ec2-user'       // EC2 사용자 이름 (Amazon Linux의 경우 'ec2-user', Ubuntu의 경우 'ubuntu')
+    }
+    
+    stages {
+        stage('Clone and Deploy on EC2') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        chmod 600 \${SSH_KEY}
+                        ssh -i \${SSH_KEY} -o StrictHostKeyChecking=no \${EC2_USER}@\${EC2_HOST} "
+                            # 기존 디렉토리 정리
+                            rm -rf 09_DEPLOYMENT && \\
+                            
+                            # GitHub 저장소 클론
+                            git clone https://github.com/STD-INFO-COMPUTING-WEB-2024-07-30/09_DEPLOYMENT.git && \\
+                            
+                            # 작업 디렉토리로 이동
+                            cd 09_DEPLOYMENT/04_DOCKER_COMPOSE_JENKINS && \\
+                            
+                            # Docker 명령어 실행 (sudo 사용)
+                            sudo docker-compose down || true && \\
+                            sudo docker rm -f \$(sudo docker ps -aq) 2>/dev/null || true && \\
+                            sudo docker rmi -f \$(sudo docker images -q) 2>/dev/null || true && \\
+                            
+                            # 이미지 강제 재빌드 및 컨테이너 시작
+                            sudo docker-compose build --no-cache && \\
+                            sudo docker-compose up -d --scale jenkins=0
+                        "
+                    """
+                }
+            }
+        }
+    }  
+    post {
+        success {
+            echo 'Deployment to EC2 completed successfully!'
+        }
+        failure {
+            echo 'Deployment to EC2 failed!'
+        }
+    }
+
+}     
+```
+Description - AWS_EC2_Password
+
+Username - ec2-user
+
+
+Private Key
+Enter directly
+Key -
+aws에서 ec2에서 만든 인스턴스로 받았던
+DEPLOY_SERVER.pem 를 메모장으로 열어서 내용 전체 복사해서 붙여넣기
+
+Dashboard > All > New Item
+
+이름 - DEPLOY_TEST
+pipe line 선택하고 만들기
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

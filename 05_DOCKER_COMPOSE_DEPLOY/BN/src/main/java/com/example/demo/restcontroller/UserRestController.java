@@ -113,7 +113,7 @@ public class UserRestController {
 //            refreshCookie.setMaxAge(JwtProperties.REFRESH_TOKEN_EXPIRATION_TIME); // 7 days expiration
 
             Cookie userCookie = new Cookie("username", authentication.getName());
-            userCookie.setHttpOnly(true); //HttpOnly : 접근 제한 = 안전
+            userCookie.setHttpOnly(true);
             accessCookie.setSecure(false); // Only for HTTPS
             userCookie.setPath("/");
             userCookie.setMaxAge(JwtProperties.REFRESH_TOKEN_EXPIRATION_TIME); // 7 days expiration
