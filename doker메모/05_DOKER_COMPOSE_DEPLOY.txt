@@ -399,22 +399,72 @@ Dashboard > All > New Item
 이름 - DEPLOY_TEST
 pipe line 선택하고 만들기
 
+General에서
+GitHub project 체크
+Project url - https://github.com/JiwebD/DOCKER_LOG.git/
+
 
 JENKINS\pipeline에
 EC2_HOST aws/ec2에서 받은 내아이피로 하기
 TARGET_DIR 실행할려는 프로젝트 경로로 하기
+09_DEPLOYMENT 블록 지정하고 ctrl + h 해서 내 래포지토리 이름으로 전부 변경
+git clone 전부 내 래포지토리 로 수정
 
+===
+수정완료 pipeline
+//여기에 jenkins pipline script만들어줘     
 
+pipeline {
+    agent any
+    
     environment {
         GITHUB_REPO = 'https://github.com/JiwebD/DOCKER_LOG.git'
-        TARGET_DIR = '05_DOCKER_COMPOSE_JENKINS'
+        TARGET_DIR = '05_DOCKER_COMPOSE_DEPLOY'
         EC2_HOST = '43.202.134.160'  // EC2 인스턴스의 퍼블릭 IP나 DNS
         EC2_USER = 'ec2-user'       // EC2 사용자 이름 (Amazon Linux의 경우 'ec2-user', Ubuntu의 경우 'ubuntu')
     }
+    
+    stages {
+        stage('Clone and Deploy on EC2') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        chmod 600 \${SSH_KEY}
+                        ssh -i \${SSH_KEY} -o StrictHostKeyChecking=no \${EC2_USER}@\${EC2_HOST} "
+                            # 기존 디렉토리 정리
+                            rm -rf DOCKER_LOG && \\
+                            
+                            # GitHub 저장소 클론
+                            git clone https://github.com/JiwebD/DOCKER_LOG.git && \\
+                            
+                            # 작업 디렉토리로 이동
+                            cd DOCKER_LOG/04_DOCKER_COMPOSE_JENKINS && \\
+                            
+                            # Docker 명령어 실행 (sudo 사용)
+                            sudo docker-compose down || true && \\
+                            sudo docker rm -f \$(sudo docker ps -aq) 2>/dev/null || true && \\
+                            sudo docker rmi -f \$(sudo docker images -q) 2>/dev/null || true && \\
+                            
+                            # 이미지 강제 재빌드 및 컨테이너 시작
+                            sudo docker-compose build --no-cache && \\
+                            sudo docker-compose up -d --scale jenkins=0
+                        "
+                    """
+                }
+            }
+        }
+    }  
+    post {
+        success {
+            echo 'Deployment to EC2 completed successfully!'
+        }
+        failure {
+            echo 'Deployment to EC2 failed!'
+        }
+    }
 
-09_DEPLOYMENT 블록 지정하고 ctrl + h 해서 내 래포지토리 이름으로 전부 변경
-
-git clone 전부 내 래포지토리 로 수정
+}     
+===
 
 
 
