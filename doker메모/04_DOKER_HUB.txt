@@ -1,0 +1,245 @@
+Docker Hub 개요 및 기본 개념
+Docker Hub는 도커 이미지를 저장, 공유, 배포할 수 있는 **클라우드 기반 이미지 저장소(Registry)**입니다.
+
+1. Docker Hub란?
+정의
+Docker Hub는 Docker Inc.에서 제공하는 공식 이미지 저장소로,
+이미지를 온라인에 업로드(Push)하고 다운로드(Pull)하여 다양한 환경에서 일관되게 재사용할 수 있도록 지원하는 플랫폼입니다.
+
+
+2. 왜 Docker Hub를 사용하는가?
+항목	이유
+공유	개인 또는 팀, 전 세계 사용자들과 이미지 공유 가능
+배포	CI/CD 파이프라인과 연결하여 자동 배포 가능
+백업	로컬이 아닌 클라우드에 이미지 보관
+협업	여러 개발자들이 동일한 이미지를 사용 가능
+공개 이미지 활용	공식 및 커뮤니티 이미지 수천 개 제공 (MySQL, Redis 등)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-------------
+https://hub.docker.com/ 로그인
+
+dockerhub
+
+Repositoryes에서 Create repository 
+
+docker_hub_test
+
+만들고
+
+cmd 
+
+Docker Hub 로그인
+docker images
+
+docker login
+==
+C:\Users\Administrator>docker login
+Authenticating with existing credentials... [Username: jwebd]
+
+i Info → To login with a different account, run 'docker logout' followed by 'docker login'
+
+
+Login Succeeded
+
+C:\Users\Administrator>
+
+==
+
+
+로컬 이미지 확인 및 태깅
+docker images
+
+docker tag bn     jwebd/docker_hub_test:bn
+docker tag fn     jwebd/docker_hub_test:fn
+docker tag redis  jwebd/docker_hub_test:redis
+docker tag db     jwebd/docker_hub_test:db
+
+docker images
+==
+C:\Users\Administrator>docker images
+REPOSITORY              TAG       IMAGE ID       CREATED        SIZE
+jwebd/docker_app_test   bn        3c07bf1970d3   19 hours ago   682MB
+bn                      latest    3c07bf1970d3   19 hours ago   682MB
+jwebd/docker_app_test   fn        bbb8dff13898   2 days ago     75.9MB
+fn                      latest    bbb8dff13898   2 days ago     75.9MB
+jwebd/docker_app_test   redis     a45ceb5ee750   2 days ago     188MB
+redis                   latest    a45ceb5ee750   2 days ago     188MB
+jwebd/docker_app_test   db        448cbbe471e1   7 weeks ago    1.06GB
+db                      latest    448cbbe471e1   7 weeks ago    1.06GB
+==
+
+
+Docker Hub에 이미지 업로드
+
+docker push jwebd/docker_hub_test:bn
+docker push jwebd/docker_hub_test:fn
+docker push jwebd/docker_hub_test:redis
+docker push jwebd/docker_hub_test:db
+
+
+dockerhub Repositories / docker_hub_test / General에서 푸쉬 된거 확인
+
+
+
+다른 환경에서 이미지 다운로드
+기존 도커 중지/삭제 & 이미지 삭제
+FOR /f %i IN ('docker images -q') DO docker rmi -f %i
+
+docker images
+
+docker pull jwebd/docker_hub_test:bn
+docker pull jwebd/docker_hub_test:fn
+docker pull jwebd/docker_hub_test:redis
+docker pull jwebd/docker_hub_test:db
+
+docker images
+REPOSITORY              TAG       IMAGE ID       CREATED        SIZE
+jwebd/docker_hub_test   bn        3c07bf1970d3   19 hours ago   682MB
+jwebd/docker_hub_test   fn        bbb8dff13898   2 days ago     75.9MB
+jwebd/docker_hub_test   redis     a45ceb5ee750   2 days ago     188MB
+jwebd/docker_hub_test   db        448cbbe471e1   7 weeks ago    1.06GB
+
+
+컨테이너로 실행
+docker network create my-network
+docker run -d --name db-container --network my-network -p 3330:3306 jwebd/docker_hub_test:db
+docker run -d --name redis-container --network my-network -p 6379:6379 jwebd/docker_hub_test:redis
+docker run -d --name bn-container --network my-network -p 8090:8090 jwebd/docker_hub_test:bn
+docker run -d --name fn-container --network my-network -p 3000:80 jwebd/docker_hub_test:fn
+
+docker ps -a
+STATUS에 문제 없는지 확인
+문제 있는거
+docker remove CONTAINERID 하고 다시 실행
+
+
+# REM 모든 컨테이너 중지
+FOR /f %i IN ('docker ps -q') DO docker stop %i
+
+# REM 모든 컨테이너 삭제
+FOR /f %i IN ('docker ps -a -q') DO docker rm %i
+
+# 이미지 삭제
+FOR /f %i IN ('docker images -q') DO docker rmi -f %i
+
+docker images
+
+docker ps
+
+
+
+
+
+==========================
+COMPOSE + HUB
+
+docker network ls
+
+docker network rm 0a181fddff9b
+
+docker network ls
+
+메모장에 아래 코드 복붙하고 docker_compose.yml 로 저장
+경로에서 cmd 실행 docker compose up
+브라우저 에서 localhost:3000 접속 확인
+==
+version: '3.8'
+
+networks:
+  custom-network:
+    driver: bridge
+
+services:
+  fn:
+    image: jwebd/docker_hub_test:fn
+    container_name: fn-container
+    ports:
+      - "3000:80"
+    depends_on:
+      - bn
+    networks:
+      - custom-network
+
+  bn:
+    image: jwebd/docker_hub_test:bn
+    container_name: bn-container
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db-container:3306/bookdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: Zhfldk11!
+      SPRING_REDIS_HOST: redis
+      SERVER_PORT: 8090
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - custom-network
+
+  db:
+    image: jwebd/docker_hub_test:db
+    container_name: db-container
+    ports:
+      - "3330:3306"
+    networks:
+      custom-network:
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      # - ./DB/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: Zhfldk11!
+      MYSQL_DATABASE: bookdb
+      MYSQL_USER: dbconn
+      MYSQL_PASSWORD: Zhfldk11!
+      MYSQL_ROOT_HOST: '%'
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+
+  redis:
+    image: jwebd/docker_hub_test:redis
+    container_name: redis-container
+    ports:
+      - "6379:6379"
+    networks:
+      - custom-network
+
+volumes:
+  db-data:
+
+
+==
+
+
+
+
+
+=======================
+
+
+
+
+
+
+
