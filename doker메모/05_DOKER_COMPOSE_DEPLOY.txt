@@ -400,9 +400,37 @@ Dashboard > All > New Item
 pipe line 선택하고 만들기
 
 
+JENKINS\pipeline에
+EC2_HOST aws/ec2에서 받은 내아이피로 하기
+TARGET_DIR 실행할려는 프로젝트 경로로 하기
+
+
+    environment {
+        GITHUB_REPO = 'https://github.com/JiwebD/DOCKER_LOG.git'
+        TARGET_DIR = '05_DOCKER_COMPOSE_JENKINS'
+        EC2_HOST = '43.202.134.160'  // EC2 인스턴스의 퍼블릭 IP나 DNS
+        EC2_USER = 'ec2-user'       // EC2 사용자 이름 (Amazon Linux의 경우 'ec2-user', Ubuntu의 경우 'ubuntu')
+    }
+
+09_DEPLOYMENT 블록 지정하고 ctrl + h 해서 내 래포지토리 이름으로 전부 변경
+
+git clone 전부 내 래포지토리 로 수정
 
 
 
+pipeline 수정된 내용 전부 복사해서
+
+젠킨스
+Dashboard > DEPLOY_TEST 	> Configuration
+Pipeline
+script에 붙여넣기
+
+
+
+
+putty에서
+systemctl stop jenkins
+systemctl disable jenkins
 
 
 
