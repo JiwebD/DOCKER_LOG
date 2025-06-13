@@ -192,6 +192,7 @@ volumes:
 터미널
 
 docker compose up 되는거 확인하고 끄기
+docker compose down
 
 ======================
 
